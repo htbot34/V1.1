@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Coverage Planner</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1a2b3c;--navy2:#243447;--teal:#1e7e8c;--teal-lt:#2a9cac;
+  --cream:#f6f2eb;--cream2:#ede9e1;--white:#fdfcfa;
+  --slate:#5a6a7a;--slate-lt:#8fa0b0;
+  --red:#c74040;--amber:#d48820;--green:#2a7a4a;
+  --green-lt:#ebf7f0;--red-lt:#fdf0f0;--amber-lt:#fdf7ec;
+  --border:#d8d2c8;--r:8px;
+  --shadow:0 2px 12px rgba(26,43,60,.10);
+}
+html,body{height:100%;font-family:system-ui,-apple-system,sans-serif;background:var(--cream);color:var(--navy);font-size:14px}
+#gate{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s ease}
+#gate.hidden{opacity:0;pointer-events:none}
+.gate-box{background:var(--navy2);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:44px 48px;width:360px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.gate-logo{font-size:18px;font-weight:700;color:#fff;margin-bottom:4px;letter-spacing:.01em}
+.gate-sub{font-size:12px;color:var(--slate-lt);text-transform:uppercase;letter-spacing:.1em;margin-bottom:36px}
+.gate-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--slate-lt);text-align:left;margin-bottom:8px}
+.gate-input{width:100%;padding:11px 14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:15px;letter-spacing:.08em;outline:none;transition:border-color .2s}
+.gate-input:focus{border-color:var(--teal-lt)}
+.gate-btn{width:100%;margin-top:16px;padding:12px;background:var(--teal);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;letter-spacing:.02em}
+.gate-btn:hover{background:var(--teal-lt)}
+.gate-err{margin-top:14px;font-size:12px;color:#ff8080;min-height:18px;transition:opacity .2s}
+#app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:230px;min-width:230px;background:var(--navy);display:flex;flex-direction:column;z-index:10;box-shadow:2px 0 16px rgba(0,0,0,.2)}
+.sb-brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.08)}
+.sb-brand h1{font-size:15px;font-weight:700;color:#fff;line-height:1.3}
+.sb-brand p{font-size:10px;color:var(--slate-lt);margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.sb-section{padding:14px 10px 6px}
+.sb-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-lt);padding:0 8px;margin-bottom:5px}
+.nav-btn{display:flex;align-items:center;gap:9px;width:100%;padding:8px 12px;border:none;border-radius:6px;background:transparent;color:rgba(255,255,255,.6);font-size:13px;cursor:pointer;text-align:left;transition:background .15s,color .15s}
+.nav-btn:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav-btn.active{background:var(--teal);color:#fff;font-weight:500}
+.nav-btn svg{flex-shrink:0;opacity:.8}.nav-btn.active svg{opacity:1}
+.sb-footer{margin-top:auto;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:var(--slate-lt)}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.topbar{background:var(--white);border-bottom:1px solid var(--border);padding:13px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+.topbar h2{font-size:18px;font-weight:700;color:var(--navy)}
+.topbar-right{margin-left:auto;font-size:12px;color:var(--slate);font-family:monospace}
+.page{padding:20px 24px;flex:1}
+.card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:16px}
+.card-hd{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.card-body{padding:14px 16px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:6px;font-size:12px;font-weight:500;font-family:inherit;cursor:pointer;border:none;transition:all .15s;white-space:nowrap}
+.btn-primary{background:var(--teal);color:#fff}.btn-primary:hover{background:var(--teal-lt)}
+.btn-secondary{background:var(--cream2);color:var(--navy);border:1px solid var(--border)}.btn-secondary:hover{background:var(--cream)}
+.btn-danger{background:var(--red-lt);color:var(--red);border:1px solid #f0c0c0}.btn-danger:hover{background:#fce8e8}
+.btn-sm{padding:4px 9px;font-size:11px}.btn-icon{padding:5px;border-radius:5px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;font-family:monospace;letter-spacing:.02em}
+.badge-in{background:var(--green-lt);color:var(--green)}.badge-out{background:#fff3e0;color:#b45309}
+.badge-pto{background:var(--red-lt);color:var(--red)}.badge-admin{background:#e8f0fe;color:#3b5bdb}
+.sselect{font-size:11px;font-family:monospace;border:1px solid var(--border);border-radius:5px;padding:3px 5px;background:var(--cream);cursor:pointer;color:var(--navy);outline:none}
+.sselect:focus{border-color:var(--teal)}
+.chip{font-family:monospace;font-size:11px;padding:2px 7px;border-radius:4px;font-weight:600;background:var(--teal);color:#fff;white-space:nowrap;display:inline-block}
+.chip-warn{background:var(--amber)}.chip-danger{background:var(--red)}.chip-pcp{background:#6c7a8a;color:#fff}
+.day-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:1050px){.day-grid{grid-template-columns:1fr 1fr}}
+.team-card{border-radius:var(--r);border:1px solid var(--border);background:var(--white);overflow:hidden}
+.team-hd{padding:9px 13px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff}
+.prov-row{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:7px;padding:5px 12px;border-bottom:1px solid var(--cream2)}
+.prov-row:last-child{border-bottom:none}
+.prov-name{font-size:13px;font-weight:500}.prov-role{font-size:10px;color:var(--slate);text-transform:uppercase;letter-spacing:.04em}
+.load-panel{background:var(--navy2);color:#fff;border-radius:var(--r);padding:16px 18px;margin-bottom:16px}
+.load-panel h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--slate-lt);margin-bottom:11px}
+.load-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.load-item{background:rgba(255,255,255,.06);border-radius:6px;padding:9px 11px}
+.load-name{font-size:11px;font-weight:500;margin-bottom:5px}
+.load-units{font-family:monospace;font-size:17px;font-weight:600;margin-bottom:5px}
+.load-bar{height:4px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden}
+.load-fill{height:100%;border-radius:2px}
+.fill-ok{background:#4caf80}.fill-warn{background:#e0a030}.fill-over{background:#e05050}
+.week-wrap{overflow-x:auto;margin-bottom:20px}
+.week-tbl{width:100%;border-collapse:collapse}
+.week-tbl th,.week-tbl td{border:1px solid var(--border);padding:7px 9px;font-size:12px;vertical-align:top}
+.week-tbl th{background:var(--navy);color:#fff;font-weight:500;font-size:11px;letter-spacing:.04em}
+.week-tbl tr:nth-child(even) td{background:#fbfaf8}
+.fg{margin-bottom:13px}
+.flabel{display:block;font-size:11px;font-weight:600;color:var(--slate);margin-bottom:4px;letter-spacing:.02em}
+.finput{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:5px;font-family:inherit;font-size:13px;background:var(--white);color:var(--navy);outline:none}
+.finput:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(30,126,140,.12)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.plist-item{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid var(--cream2)}
+.plist-item:last-child{border-bottom:none}
+.plist-name{font-size:13px;font-weight:500}.plist-meta{font-size:10px;color:var(--slate)}
+.tabs{display:flex;gap:2px;border-bottom:2px solid var(--border);margin-bottom:18px}
+.tab-btn{padding:7px 15px;border:none;background:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--slate);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab-btn:hover{color:var(--navy)}.tab-btn.active{color:var(--teal);border-bottom-color:var(--teal)}
+.alert{padding:9px 13px;border-radius:6px;font-size:12px;display:flex;gap:8px;align-items:flex-start;margin-bottom:11px}
+.alert-danger{background:var(--red-lt);border:1px solid #f0c0c0;color:#8b2020}
+.alert-info{background:#e8f4ff;border:1px solid #b8d8ff;color:#1e3a60}
+.date-nav{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:16px}
+.date-nav input[type=date]{font-family:monospace;font-size:12px;border:1px solid var(--border);border-radius:5px;padding:5px 9px;color:var(--navy);background:var(--white);outline:none;cursor:pointer}
+.date-nav input[type=date]:focus{border-color:var(--teal)}
+.date-label{font-family:monospace;font-size:12px;color:var(--slate)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:var(--white);border-radius:10px;width:100%;max-width:460px;box-shadow:0 8px 32px rgba(26,43,60,.2)}
+.modal-hd{padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-hd h3{font-size:15px;font-weight:600}
+.modal-body{padding:18px 20px}.modal-ft{padding:12px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:9px}
+.toggle-wrap{display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px}
+.toggle-track{width:34px;height:19px;background:var(--border);border-radius:10px;position:relative;transition:background .2s;flex-shrink:0}
+.toggle-track::after{content:'';position:absolute;top:3px;left:3px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle-on{background:var(--teal)}.toggle-on::after{transform:translateX(15px)}
+.section-title{font-size:17px;font-weight:700;margin-bottom:14px;color:var(--navy)}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.flex-row{display:flex;align-items:center;gap:9px}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.empty-state{padding:36px;text-align:center;color:var(--slate);font-size:13px}
+.text-muted{color:var(--slate)}.text-sm{font-size:11px}
+.mb-2{margin-bottom:8px}.mb-3{margin-bottom:12px}.mb-4{margin-bottom:16px}
+.color-dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0}
+.weekly-load-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:16px}
+.wl-card{background:var(--white);border:1px solid var(--border);border-radius:var(--r);padding:11px 14px;box-shadow:var(--shadow)}
+.wl-bar-wrap{display:flex;align-items:center;gap:7px;margin-top:6px}
+.wl-bar-track{flex:1;height:5px;background:var(--cream2);border-radius:3px;overflow:hidden}
+.wl-bar-fill{height:100%;border-radius:3px}
+.wl-label{font-family:monospace;font-size:10px;color:var(--slate);min-width:48px;text-align:right}
+input[type=number].finput{-moz-appearance:textfield}
+input[type=number].finput::-webkit-outer-spin-button,input[type=number].finput::-webkit-inner-spin-button{-webkit-appearance:none}
+select.finput{cursor:pointer}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-logo">Park Place Internal Medicine</div>
+    <div class="gate-sub">Coverage Planner</div>
+    <label class="gate-label" for="gate-pw">Password</label>
+    <input id="gate-pw" class="gate-input" type="password" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')gateSubmit()">
+    <button class="gate-btn" onclick="gateSubmit()">Sign In</button>
+    <div id="gate-err" class="gate-err"></div>
+  </div>
+</div>
+<div id="app"></div>
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const STATUS_OPTS=['IN','OUT','OUT/PTO','ADMIN'];
+const COLORS=['#1E5E8C','#1E7E5C','#6B4E8C','#8C4E1E','#1E5E5E','#5E3E8C','#8C1E1E','#1E4E8C','#5E6E1E'];
+const DEF_SETTINGS={practiceName:'Park Place Internal Medicine',mdPtoWeight:1.5,mdOffWeight:1.0,appAnyWeight:0.5,appCoverWeight:0.25,dailyAppLimit:3.0,weeklyAppLimit:10.0,autoAssign:true};
+const DEF_TEAMS=[
+  {id:'vista',name:'Vista',color:'#1E5E8C'},{id:'bogus',name:'Bogus',color:'#1E7E5C'},
+  {id:'fort',name:'Fort',color:'#6B4E8C'},{id:'warm-springs',name:'Warm Springs',color:'#8C4E1E'},
+  {id:'harrison',name:'Harrison',color:'#1E5E5E'},{id:'gowen',name:'Gowen',color:'#5E3E8C'},
+];
+const DEF_PROVIDERS=[
+  {id:'donovan',name:'Donovan',role:'MD',teamId:'vista',isFloat:false},
+  {id:'meier',name:'Meier',role:'MD',teamId:'vista',isFloat:false},
+  {id:'micah',name:'Micah',role:'APP',teamId:'vista',isFloat:false},
+  {id:'turcotte',name:'Turcotte',role:'MD',teamId:'bogus',isFloat:false},
+  {id:'tanabe',name:'Tanabe',role:'MD',teamId:'bogus',isFloat:false},
+  {id:'brittany',name:'Brittany',role:'APP',teamId:'bogus',isFloat:false},
+  {id:'gallafent',name:'Gallafent',role:'MD',teamId:'fort',isFloat:false},
+  {id:'miltner',name:'Miltner',role:'MD',teamId:'fort',isFloat:false},
+  {id:'phyllis',name:'Phyllis',role:'APP',teamId:'fort',isFloat:false},
+  {id:'pelton',name:'Pelton',role:'MD',teamId:'warm-springs',isFloat:false},
+  {id:'nelson',name:'Nelson',role:'MD',teamId:'warm-springs',isFloat:false},
+  {id:'kelley',name:'Kelley',role:'APP',teamId:'warm-springs',isFloat:false},
+  {id:'schell',name:'Schell',role:'MD',teamId:'harrison',isFloat:false},
+  {id:'stubbs',name:'Stubbs',role:'MD',teamId:'harrison',isFloat:false},
+  {id:'sam',name:'Sam',role:'APP',teamId:'harrison',isFloat:false},
+  {id:'gabutti',name:'Gabutti',role:'MD',teamId:'gowen',isFloat:false},
+  {id:'sorensen',name:'Sorensen',role:'MD',teamId:'gowen',isFloat:false},
+  {id:'sophia',name:'Sophia',role:'APP',teamId:'gowen',isFloat:false},
+  {id:'sorcha',name:'Sorcha Cusack',role:'APP',teamId:null,isFloat:true},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const S={
+  view:'daily', date:todayISO(), weekAnchor:todayISO(),
+  providers:lsGet('pp_providers',DEF_PROVIDERS),
+  teams:lsGet('pp_teams',DEF_TEAMS),
+  settings:{...DEF_SETTINGS,...lsGet('pp_settings',{})},
+  schedule:lsGet('pp_schedule',{}),
+  modal:null, staffTab:'providers', sf:null,
+};
+function set(patch){Object.assign(S,patch);render();}
+function persist(){lsSet('pp_providers',S.providers);lsSet('pp_teams',S.teams);lsSet('pp_settings',S.settings);lsSet('pp_schedule',S.schedule);}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function todayISO(){return new Date().toISOString().split('T')[0];}
+function isoDisp(iso){if(!iso)return'';const[y,m,d]=iso.split('-');return`${m}/${d}/${y}`;}
+function weekDts(anchor){
+  const d=new Date(anchor+'T12:00:00'),day=d.getDay(),mon=new Date(d);
+  mon.setDate(d.getDate()-(day===0?6:day-1));
+  return Array.from({length:5},(_,i)=>{const dd=new Date(mon);dd.setDate(mon.getDate()+i);return dd.toISOString().split('T')[0];});
+}
+function dName(iso){const wd=weekDts(iso),i=wd.indexOf(iso);return i>=0?DAYS[i]:new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'long'});}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function stBadge(st){const m={IN:'in',OUT:'out','OUT/PTO':'pto',ADMIN:'admin'};return`<span class="badge badge-${m[st]||'in'}">${esc(st||'IN')}</span>`;}
+
+// ── ALGORITHM ─────────────────────────────────────────────────────────────────
+function compute(ds,providers,teams,settings){
+  const loads={};
+  const asgn={};
+  const availAPPs=providers.filter(p=>{
+    if(p.role!=='APP')return false;
+    const st=ds[p.id]||'IN';
+    return st!=='OUT'&&st!=='OUT/PTO';
+  });
+  availAPPs.forEach(a=>{loads[a.id]=0;});
+
+  // Phase 1: Absent APP coverage first (0.25 units each)
+  // Fallback: if no APP available, a same-team IN MD covers the absent APP
+  const absentAPPs=providers.filter(p=>{
+    if(p.role!=='APP')return false;
+    const st=ds[p.id]||'IN';
+    return st==='OUT'||st==='OUT/PTO';
+  });
+  absentAPPs.sort((a,b)=>{
+    const fa=a.isFloat?0:1,fb=b.isFloat?0:1;
+    return(fa-fb)||({'OUT/PTO':0,'OUT':1}[ds[a.id]||'IN']||0)-({'OUT/PTO':0,'OUT':1}[ds[b.id]||'IN']||0);
+  });
+  for(const app of absentAPPs){
+    const w=settings.appCoverWeight;
+    const ok=id=>(loads[id]||0)+w<=settings.dailyAppLimit;
+    const floats=availAPPs.filter(a=>a.isFloat&&a.id!==app.id&&ok(a.id));
+    let ch=null;
+    if(floats.length){floats.sort((a,b)=>(loads[a.id]||0)-(loads[b.id]||0));ch=floats[0].id;}
+    if(!ch){const any=availAPPs.filter(a=>a.id!==app.id&&ok(a.id));if(any.length){any.sort((a,b)=>(loads[a.id]||0)-(loads[b.id]||0));ch=any[0].id;}}
+    if(ch){asgn[app.id]=ch;loads[ch]=(loads[ch]||0)+w;}
+    else if(!app.isFloat&&app.teamId){
+      // No APP capacity — try a same-team IN MD to cover this absent APP
+      const sameTeamInMDs=providers.filter(p=>
+        p.role==='MD'&&p.teamId===app.teamId&&
+        (ds[p.id]||'IN')!=='OUT'&&(ds[p.id]||'IN')!=='OUT/PTO'
+      );
+      asgn[app.id]=sameTeamInMDs.length?sameTeamInMDs[0].id:'UNCOVERED';
+    } else {
+      asgn[app.id]='UNCOVERED';
+    }
+  }
+
+  // Phase 2a: Team APP covers own ABSENT physicians
+  teams.forEach(team=>{
+    const teamAPPs=providers.filter(p=>!p.isFloat&&p.role==='APP'&&p.teamId===team.id);
+    const teamMDs=providers.filter(p=>p.role==='MD'&&p.teamId===team.id);
+    const availTeamAPP=teamAPPs.find(a=>availAPPs.some(av=>av.id===a.id));
+    teamMDs.forEach(md=>{
+      const st=ds[md.id]||'IN';
+      const isOut=st==='OUT'||st==='OUT/PTO';
+      if(!isOut) return;
+      const w=st==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+      if(availTeamAPP&&(loads[availTeamAPP.id]||0)+w<=settings.dailyAppLimit){
+        asgn[md.id]=availTeamAPP.id;
+        loads[availTeamAPP.id]=(loads[availTeamAPP.id]||0)+w;
+      } else {
+        asgn[md.id]='__needs_help__';
+      }
+    });
+  });
+
+  // Phase 3: Absent MDs with no team APP coverage → float → cross-team APP → same-team IN MD → UNCOVERED
+  // Same-team MD coverage is now allowed whenever no APP has remaining capacity (not just when all APPs absent)
+  const needHelp=providers.filter(p=>p.role==='MD'&&asgn[p.id]==='__needs_help__');
+  needHelp.sort((a,b)=>{
+    const sa=ds[a.id]||'IN',sb=ds[b.id]||'IN';
+    return({'OUT/PTO':0,'OUT':1}[sa]||0)-({'OUT/PTO':0,'OUT':1}[sb]||0);
+  });
+  for(const md of needHelp){
+    const st=ds[md.id]||'IN';
+    const w=st==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+    const ok=id=>(loads[id]||0)+w<=settings.dailyAppLimit;
+    const floats=availAPPs.filter(a=>a.isFloat&&ok(a.id));
+    let ch=null;
+    if(floats.length){floats.sort((a,b)=>(loads[a.id]||0)-(loads[b.id]||0));ch=floats[0].id;}
+    if(!ch){const any=availAPPs.filter(a=>!a.isFloat&&ok(a.id));if(any.length){any.sort((a,b)=>(loads[a.id]||0)-(loads[b.id]||0));ch=any[0].id;}}
+    if(ch){asgn[md.id]=ch;loads[ch]=(loads[ch]||0)+w;}
+    else{
+      // No APP has capacity — same-team IN MD covers (never cross-team)
+      const sameTeamInMDs=providers.filter(p=>
+        p.role==='MD'&&p.teamId===md.teamId&&p.id!==md.id&&
+        (ds[p.id]||'IN')!=='OUT'&&(ds[p.id]||'IN')!=='OUT/PTO'
+      );
+      asgn[md.id]=sameTeamInMDs.length?sameTeamInMDs[0].id:'UNCOVERED';
+    }
+  }
+
+  // Relief pass: if any MDs are still UNCOVERED, swap APP-covered absent MDs to same-team IN MD
+  // to free up APP capacity for MDs that have no other coverage option
+  const uncovMDs=providers.filter(p=>p.role==='MD'&&asgn[p.id]==='UNCOVERED');
+  if(uncovMDs.length>0){
+    // Build relief candidates: absent MD assigned to any APP where a same-team IN MD could take over
+    const reliefCands=[];
+    for(const[coveredId,covId]of Object.entries(asgn)){
+      if(!covId||loads[covId]===undefined)continue; // coverer is not an in-office APP
+      const covered=providers.find(p=>p.id===coveredId);
+      if(!covered||covered.role!=='MD')continue;
+      const covSt=ds[covered.id]||'IN';
+      if(covSt!=='OUT'&&covSt!=='OUT/PTO')continue;
+      const inMDs=providers.filter(p=>
+        p.role==='MD'&&p.teamId===covered.teamId&&p.id!==covered.id&&
+        (ds[p.id]||'IN')!=='OUT'&&(ds[p.id]||'IN')!=='OUT/PTO'
+      );
+      if(!inMDs.length)continue;
+      const w=covSt==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+      reliefCands.push({md:covered,inMD:inMDs[0],appId:covId,freed:w});
+    }
+    // Sort: most capacity freed first so heaviest absences resolve first
+    reliefCands.sort((a,b)=>b.freed-a.freed);
+    uncovMDs.sort((a,b)=>{
+      const wa=(ds[a.id]||'IN')==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+      const wb=(ds[b.id]||'IN')==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+      return wb-wa;
+    });
+    for(const uncov of uncovMDs){
+      const st=ds[uncov.id]||'IN';
+      const need=st==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight;
+      for(let i=0;i<reliefCands.length;i++){
+        const rc=reliefCands[i];
+        const newLoad=(loads[rc.appId]||0)-rc.freed+need;
+        if(newLoad<=settings.dailyAppLimit){
+          loads[rc.appId]=(loads[rc.appId]||0)-rc.freed+need;
+          asgn[rc.md.id]=rc.inMD.id; // same-team MD takes over from APP
+          asgn[uncov.id]=rc.appId;   // freed APP now covers the uncovered MD
+          reliefCands.splice(i,1);
+          break;
+        }
+      }
+    }
+  }
+
+  // Phase 2b: Team APP covers own IN physicians with remaining capacity; otherwise PCP
+  teams.forEach(team=>{
+    const teamAPPs=providers.filter(p=>!p.isFloat&&p.role==='APP'&&p.teamId===team.id);
+    const teamMDs=providers.filter(p=>p.role==='MD'&&p.teamId===team.id);
+    const availTeamAPP=teamAPPs.find(a=>availAPPs.some(av=>av.id===a.id));
+    teamMDs.forEach(md=>{
+      const st=ds[md.id]||'IN';
+      const isOut=st==='OUT'||st==='OUT/PTO';
+      if(isOut) return;
+      const w=settings.appAnyWeight;
+      if(availTeamAPP&&(loads[availTeamAPP.id]||0)+w<=settings.dailyAppLimit){
+        asgn[md.id]=availTeamAPP.id;
+        loads[availTeamAPP.id]=(loads[availTeamAPP.id]||0)+w;
+      } else {
+        asgn[md.id]='PCP';
+      }
+    });
+  });
+
+  return{asgn,loads};
+}
+
+// Recompute actual APP loads from the final (post-manual-override) assignment map
+function computeLoadsFromFin(fin,ds,providers,settings){
+  const loads={};
+  providers.filter(p=>{
+    const st=ds[p.id]||'IN';
+    return p.role==='APP'&&st!=='OUT'&&st!=='OUT/PTO';
+  }).forEach(p=>{loads[p.id]=0;});
+  for(const[coveredId,covId]of Object.entries(fin)){
+    if(!covId||covId==='UNCOVERED'||covId==='PCP'||covId==='MD_ONLY'||covId==='__needs_help__') continue;
+    const cov=providers.find(x=>x.id===covId);
+    if(!cov||cov.role!=='APP') continue;
+    const covered=providers.find(x=>x.id===coveredId);
+    if(!covered) continue;
+    const st=ds[covered.id]||'IN';
+    const isOut=st==='OUT'||st==='OUT/PTO';
+    let w=0;
+    if(covered.role==='MD') w=isOut?(st==='OUT/PTO'?settings.mdPtoWeight:settings.mdOffWeight):settings.appAnyWeight;
+    else if(covered.role==='APP') w=settings.appCoverWeight;
+    if(w>0) loads[covId]=(loads[covId]||0)+w;
+  }
+  return loads;
+}
+
+// ── ICONS ─────────────────────────────────────────────────────────────────────
+const IC={
+  cal:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  wk:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="9" y1="9" x2="9" y2="22"/><line x1="15" y1="9" x2="15" y2="22"/></svg>`,
+  usr:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  cog:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  plus:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  del:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+  ed:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  warn:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  ok:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  X:`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  inf:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  cL:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  cR:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+};
+
+// ── RENDER FUNCTIONS ──────────────────────────────────────────────────────────
+function renderSidebar(){
+  const nb=(id,ic,lbl)=>`<button class="nav-btn${S.view===id?' active':''}" onclick="A.nav('${id}')">${IC[ic]} ${esc(lbl)}</button>`;
+  return`<aside class="sidebar">
+    <div class="sb-brand"><h1>${esc(S.settings.practiceName)}</h1><p>Coverage Planner</p></div>
+    <div class="sb-section"><div class="sb-label">Planning</div>${nb('daily','cal','Daily Coverage')}${nb('week','wk','Weekly View')}</div>
+    <div class="sb-section"><div class="sb-label">Administration</div>${nb('staff','usr','Staff & Teams')}${nb('settings','cog','Settings')}</div>
+    <div class="sb-footer">${S.providers.length} providers · ${S.teams.length} teams</div>
+  </aside>`;
+}
+
+function renderDaily(){
+  const ds=S.schedule[S.date]||{};
+  const man=S.schedule[S.date+'_asgn']||{};
+  const{asgn}=compute(ds,S.providers,S.teams,S.settings);
+  const fin=Object.assign({},asgn,man);
+  // Recompute loads from final assignments so manual overrides are reflected in the load panel
+  const loads=computeLoadsFromFin(fin,ds,S.providers,S.settings);
+  const uncov=Object.values(fin).filter(v=>v==='UNCOVERED').length;
+  const dn=dName(S.date);
+  const avail=S.providers.filter(p=>{const st=ds[p.id]||'IN';return st==='IN'||st==='ADMIN';});
+  const tmap={}; S.teams.forEach(t=>{tmap[t.id]=t;});
+
+  let li='';
+  S.providers.filter(p=>p.role==='APP').forEach(p=>{
+    const st=ds[p.id]||'IN',isOut=st==='OUT'||st==='OUT/PTO';
+    const ul=isOut?0:(loads[p.id]||0);
+    // Do NOT cap pct at 100 — show real overload so user can see it in red
+    const pct=ul/S.settings.dailyAppLimit*100;
+    const over=ul>S.settings.dailyAppLimit;
+    const fc=over?'fill-over':pct>=75?'fill-warn':'fill-ok';
+    const uc=over?'#ff8080':pct>=75?'#ffcc70':'#80e0a0';
+    const tn=p.isFloat?'Float':(tmap[p.teamId]?.name||'');
+    li+=`<div class="load-item" style="opacity:${isOut?0.4:1}">
+      <div class="load-name">${esc(p.name)} <span style="opacity:.5;font-size:10px">· ${esc(tn)}</span></div>
+      <div class="load-units" style="color:${uc}">${isOut?'OUT':`${ul.toFixed(1)} / ${S.settings.dailyAppLimit}`}</div>
+      <div class="load-bar"><div class="load-fill ${fc}" style="width:${Math.min(100,pct)}%"></div></div>
+    </div>`;
+  });
+
+  const allT=[...S.teams,{id:'__float__',name:'Float APP',color:'#4E5E6E'}];
+  let cards='';
+  allT.forEach(t=>{
+    const tps=t.id==='__float__'?S.providers.filter(p=>p.isFloat):S.providers.filter(p=>!p.isFloat&&p.teamId===t.id);
+    if(!tps.length)return;
+    let rows='';
+    tps.forEach(p=>{
+      const st=ds[p.id]||'IN';
+      const isOut=st==='OUT'||st==='OUT/PTO';
+      const isMD=p.role==='MD';
+      const isAPP=p.role==='APP';
+      const cid=(isMD||(isAPP&&isOut))?fin[p.id]:null;
+      const isMan=!!man[p.id];
+      let chipH='<div style="width:90px"></div>';
+      if(isMD){
+        let ch='';
+        if(cid==='PCP'){
+          ch=`<span class="chip chip-pcp">PCP</span>`;
+        } else if(cid==='MD_ONLY'){
+          ch=`<span class="chip chip-warn">MD Cover</span>`;
+        } else if(cid==='UNCOVERED'){
+          ch=`<span class="chip chip-danger">⚠ Uncovered</span>`;
+        } else if(cid){
+          const cp=S.providers.find(x=>x.id===cid);
+          const isCovMD=cp?.role==='MD';
+          ch=`<span class="chip${isCovMD?' chip-warn':isMan?' chip-warn':''}">${isCovMD?'MD: ':''}${esc(cp?cp.name:cid)}</span>`;
+        }
+        const so=avail.map(a=>`<option value="${esc(a.id)}"${cid===a.id?' selected':''}>${esc(a.name)} (${a.role})</option>`).join('');
+        ch+=`<br><select class="sselect" style="margin-top:3px" onchange="A.setAsgn('${esc(S.date)}','${esc(p.id)}',this.value)">
+          <option value=""${!man[p.id]?' selected':''}>Auto</option>${so}
+          <option value="PCP"${cid==='PCP'?' selected':''}>PCP (self-cover)</option>
+          <option value="MD_ONLY"${cid==='MD_ONLY'?' selected':''}>MD Cover</option>
+        </select>`;
+        chipH=`<div style="text-align:right">${ch}</div>`;
+      } else if(isAPP&&isOut){
+        // APP absent: show chip + manual override dropdown (all in-office providers)
+        let ch='';
+        if(cid==='UNCOVERED') ch=`<span class="chip chip-danger">⚠ Uncovered</span>`;
+        else if(cid){
+          const cp=S.providers.find(x=>x.id===cid);
+          const isCovMD=cp?.role==='MD';
+          ch=`<span class="chip${isCovMD?' chip-warn':isMan?' chip-warn':''}">${isCovMD?'MD: ':''}${esc(cp?cp.name:cid)}</span>`;
+        }
+        const so=avail.map(a=>`<option value="${esc(a.id)}"${cid===a.id?' selected':''}>${esc(a.name)} (${a.role})</option>`).join('');
+        ch+=`<br><select class="sselect" style="margin-top:3px" onchange="A.setAsgn('${esc(S.date)}','${esc(p.id)}',this.value)">
+          <option value=""${!man[p.id]?' selected':''}>Auto</option>${so}
+          <option value="UNCOVERED"${cid==='UNCOVERED'?' selected':''}>Uncovered</option>
+        </select>`;
+        chipH=`<div style="text-align:right">${ch}</div>`;
+      } else if(isAPP&&!isOut){
+        // IN APP: show their current load as a chip for at-a-glance status
+        const appLoad=loads[p.id]||0;
+        const over=appLoad>S.settings.dailyAppLimit;
+        const bg=over?'var(--red)':appLoad>0?'var(--teal)':'#6c7a8a';
+        const lbl=appLoad===0?'On duty':`${appLoad.toFixed(1)} units`;
+        chipH=`<div style="text-align:right"><span class="chip" style="background:${bg};color:#fff;font-size:11px">${lbl}</span></div>`;
+      }
+      const so2=STATUS_OPTS.map(s=>`<option${s===st?' selected':''}>${esc(s)}</option>`).join('');
+      rows+=`<div class="prov-row">
+        <div><div class="prov-name">${esc(p.name)}</div><div class="prov-role">${esc(p.role)}${p.isFloat?' · Float':''}</div></div>
+        <select class="sselect" onchange="A.setSt('${esc(p.id)}',this.value)">${so2}</select>
+        ${chipH}
+      </div>`;
+    });
+    cards+=`<div class="team-card"><div class="team-hd" style="background:${esc(t.color)}">${esc(t.name)}</div>${rows}</div>`;
+  });
+
+  return`<div class="page">
+    <div class="date-nav">
+      <button class="btn btn-secondary btn-sm" onclick="A.shD(-1)">${IC.cL}</button>
+      <input type="date" value="${S.date}" onchange="set({date:this.value,weekAnchor:this.value})">
+      <button class="btn btn-secondary btn-sm" onclick="A.shD(1)">${IC.cR}</button>
+      <span class="date-label">${esc(dn)}, ${isoDisp(S.date)}</span>
+      <button class="btn btn-secondary btn-sm" onclick="set({date:todayISO(),weekAnchor:todayISO()})">Today</button>
+    </div>
+    ${uncov?`<div class="alert alert-danger">${IC.warn}<span>${uncov} absence${uncov>1?'s':''} uncovered — review assignments below.</span></div>`:''}
+    <div class="load-panel"><h3>APP Load — ${esc(dn)}</h3><div style="font-size:11px;color:var(--slate);margin-bottom:8px">Reflects all current assignments including manual overrides. <span class="chip chip-pcp" style="font-size:10px;vertical-align:middle">PCP</span> = physician self-covers. Overloaded APPs shown in red.</div><div class="load-grid">${li}</div></div>
+    <div class="day-grid">${cards}</div>
+  </div>`;
+}
+
+function renderWeek(){
+  const wd=weekDts(S.weekAnchor);
+  const tmap={}; S.teams.forEach(t=>{tmap[t.id]=t;});
+  let hd=`<th style="width:120px">Provider</th>`;
+  wd.forEach((d,i)=>{hd+=`<th><div>${esc(DAYS[i])}</div><div style="font-weight:300;font-size:10px;opacity:.7">${isoDisp(d)}</div></th>`;});
+  let rows='';
+  S.teams.forEach(t=>{
+    const tps=S.providers.filter(p=>!p.isFloat&&p.teamId===t.id);
+    rows+=`<tr><td colspan="6" style="background:${esc(t.color)};color:#fff;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;padding:5px 10px">${esc(t.name)}</td></tr>`;
+    tps.forEach(p=>{
+      let cs=`<td><div style="font-weight:500;font-size:13px">${esc(p.name)}</div><div style="font-size:10px;color:var(--slate)">${esc(p.role)}</div></td>`;
+      wd.forEach(d=>{
+        const dss=S.schedule[d]||{},st=dss[p.id]||'IN';
+        const ma=(S.schedule[d+'_asgn']||{})[p.id];
+        const{asgn}=compute(dss,S.providers,S.teams,S.settings);
+        const fa=ma||asgn[p.id];
+        const isOut=st==='OUT'||st==='OUT/PTO';
+        let ch='';
+        if(p.role==='MD'&&fa){
+          if(fa==='PCP')ch=`<div style="font-family:monospace;font-size:10px;color:#6c7a8a;font-weight:700;margin-top:3px">PCP</div>`;
+          else if(fa==='MD_ONLY')ch=`<div style="font-family:monospace;font-size:10px;color:var(--amber);margin-top:3px">MD Cover</div>`;
+          else if(fa==='UNCOVERED')ch=`<div style="font-family:monospace;font-size:10px;color:var(--red);margin-top:3px">⚠ Uncov.</div>`;
+          else{const cov=S.providers.find(x=>x.id===fa);if(cov){const isCovMD=cov.role==='MD';ch=isCovMD?`<div style="font-family:monospace;font-size:10px;color:var(--amber);font-weight:600;margin-top:3px">MD: ${esc(cov.name)}</div>`:`<div style="font-family:monospace;font-size:10px;color:var(--teal);font-weight:600;margin-top:3px">→ ${esc(cov.name)}</div>`;}}
+        } else if(p.role==='APP'&&isOut&&fa){
+          if(fa==='UNCOVERED')ch=`<div style="font-family:monospace;font-size:10px;color:var(--red);margin-top:3px">⚠ Uncov.</div>`;
+          else{const cov=S.providers.find(x=>x.id===fa);if(cov)ch=`<div style="font-family:monospace;font-size:10px;color:var(--teal);font-weight:600;margin-top:3px">→ ${esc(cov.name)}</div>`;}
+        }
+        cs+=`<td>${stBadge(st)}${ch}</td>`;
+      });
+      rows+=`<tr>${cs}</tr>`;
+    });
+  });
+  S.providers.filter(p=>p.isFloat).forEach(p=>{
+    let cs=`<td style="background:#f0f4f8"><div style="font-weight:500;font-size:13px">${esc(p.name)}</div><div style="font-size:10px;color:var(--slate)">Float APP</div></td>`;
+    wd.forEach(d=>{
+      const dss=S.schedule[d]||{},st=dss[p.id]||'IN';
+      const{asgn,loads}=compute(dss,S.providers,S.teams,S.settings);
+      const isOut=st==='OUT'||st==='OUT/PTO';
+      let detail='';
+      if(isOut){
+        const fa=asgn[p.id];
+        if(fa==='UNCOVERED')detail=`<div style="font-family:monospace;font-size:10px;color:var(--red);margin-top:3px">⚠ Uncov.</div>`;
+        else if(fa){const cov=S.providers.find(x=>x.id===fa);if(cov)detail=`<div style="font-family:monospace;font-size:10px;color:var(--teal);font-weight:600;margin-top:3px">→ ${esc(cov.name)}</div>`;}
+      } else {
+        const ld=loads[p.id]||0;
+        if(ld>0)detail=`<div style="font-family:monospace;font-size:10px;margin-top:3px;color:${ld>=S.settings.dailyAppLimit?'var(--red)':'var(--teal)'}">${ld.toFixed(1)} units</div>`;
+      }
+      cs+=`<td style="background:#f0f4f8">${stBadge(st)}${detail}</td>`;
+    });
+    rows+=`<tr>${cs}</tr>`;
+  });
+  let wl='';
+  S.providers.filter(p=>p.role==='APP').forEach(p=>{
+    let tot=0;
+    wd.forEach(d=>{const dss=S.schedule[d]||{};const{loads}=compute(dss,S.providers,S.teams,S.settings);tot+=(loads[p.id]||0);});
+    const pct=Math.min(100,tot/S.settings.weeklyAppLimit*100);
+    const fc=pct>=100?'wl-bar-fill fill-over':pct>=75?'wl-bar-fill fill-warn':'wl-bar-fill fill-ok';
+    const vc=pct>=100?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+    const tn=p.isFloat?'Float':(tmap[p.teamId]?.name||'');
+    wl+=`<div class="wl-card">
+      <div class="flex-between mb-2">
+        <div><div style="font-weight:600;font-size:13px">${esc(p.name)}</div><div style="font-size:10px;color:var(--slate)">${esc(tn)}</div></div>
+        <span style="font-family:monospace;font-size:16px;font-weight:700;color:${vc}">${tot.toFixed(1)}</span>
+      </div>
+      <div class="wl-bar-wrap"><div class="wl-bar-track"><div class="${fc}" style="width:${pct}%"></div></div><span class="wl-label">${tot.toFixed(1)}/${S.settings.weeklyAppLimit}</span></div>
+    </div>`;
+  });
+  return`<div class="page">
+    <div class="flex-row mb-4">
+      <button class="btn btn-secondary btn-sm" onclick="A.shW(-7)">${IC.cL} Prev</button>
+      <span class="date-label">Week of ${isoDisp(wd[0])} — ${isoDisp(wd[4])}</span>
+      <button class="btn btn-secondary btn-sm" onclick="A.shW(7)">Next ${IC.cR}</button>
+    </div>
+    <div class="week-wrap"><table class="week-tbl"><thead><tr>${hd}</tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="section-title" style="margin-top:20px">Weekly APP Load</div>
+    <div class="weekly-load-grid">${wl}</div>
+  </div>`;
+}
+
+function renderStaff(){
+  const tmap={}; S.teams.forEach(t=>{tmap[t.id]=t;});
+  let body='';
+  if(S.staffTab==='providers'){
+    let mdr='',apr='';
+    S.providers.forEach(p=>{
+      const t=p.isFloat?{name:'Float',color:'#4E5E6E'}:tmap[p.teamId];
+      const r=`<div class="plist-item">
+        <div><div class="plist-name">${esc(p.name)}</div><div class="plist-meta">ID: ${esc(p.id)}</div></div>
+        <div class="flex-row" style="gap:5px"><span class="color-dot" style="background:${esc(t?.color||'#888')}"></span><span style="font-size:12px;color:var(--slate)">${esc(t?.name||'No Team')}</span></div>
+        <span class="badge ${p.role==='MD'?'badge-admin':'badge-in'}">${esc(p.role)}</span>
+        <div class="flex-row" style="gap:5px">
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="A.editP('${esc(p.id)}')">${IC.ed}</button>
+          <button class="btn btn-danger btn-sm btn-icon" onclick="A.delPC('${esc(p.id)}')">${IC.del}</button>
+        </div>
+      </div>`;
+      p.role==='MD'?mdr+=r:apr+=r;
+    });
+    body=`<div class="flex-between mb-4"><div class="section-title" style="margin:0">All Providers (${S.providers.length})</div><button class="btn btn-primary" onclick="A.addP()">${IC.plus} Add Provider</button></div>
+    <div class="card"><div class="card-hd">Physicians — ${S.providers.filter(p=>p.role==='MD').length}</div>${mdr||`<div class="empty-state">None yet.</div>`}</div>
+    <div class="card"><div class="card-hd">APPs — ${S.providers.filter(p=>p.role==='APP').length}</div>${apr||`<div class="empty-state">None yet.</div>`}</div>`;
+  } else {
+    let tc='';
+    S.teams.forEach(t=>{
+      const mds=S.providers.filter(p=>p.teamId===t.id&&p.role==='MD');
+      const apps=S.providers.filter(p=>p.teamId===t.id&&p.role==='APP');
+      tc+=`<div class="card" style="margin:0">
+        <div class="card-hd" style="background:${esc(t.color)};color:#fff;border-bottom-color:rgba(255,255,255,.15)">
+          <span style="flex:1">${esc(t.name)}</span>
+          <button class="btn btn-sm btn-icon" style="background:rgba(255,255,255,.15);color:#fff;border:none" onclick="A.editT('${esc(t.id)}')">${IC.ed}</button>
+          <button class="btn btn-sm btn-icon" style="background:rgba(255,255,255,.15);color:#fff;border:none" onclick="A.delTC('${esc(t.id)}')">${IC.del}</button>
+        </div>
+        <div class="card-body" style="font-size:13px">
+          <div style="font-size:11px;color:var(--slate);margin-bottom:6px">ID: ${esc(t.id)}</div>
+          <div class="mb-2"><strong>Physicians:</strong> ${mds.length?mds.map(p=>esc(p.name)).join(', '):'<span class="text-muted">None</span>'}</div>
+          <div><strong>APPs:</strong> ${apps.length?apps.map(p=>esc(p.name)).join(', '):'<span class="text-muted">None</span>'}</div>
+        </div>
+      </div>`;
+    });
+    body=`<div class="flex-between mb-4"><div class="section-title" style="margin:0">Teams (${S.teams.length})</div><button class="btn btn-primary" onclick="A.addT()">${IC.plus} Add Team</button></div>
+    <div class="grid-2">${tc||`<div class="empty-state" style="grid-column:1/-1">No teams configured.</div>`}</div>`;
+  }
+  return`<div class="page">
+    <div class="tabs">
+      <button class="tab-btn${S.staffTab==='providers'?' active':''}" onclick="set({staffTab:'providers'})">Providers</button>
+      <button class="tab-btn${S.staffTab==='teams'?' active':''}" onclick="set({staffTab:'teams'})">Teams</button>
+    </div>${body}
+  </div>`;
+}
+
+function renderSettings(){
+  const f=S.sf||S.settings;
+  const dirty=JSON.stringify(f)!==JSON.stringify(S.settings);
+  return`<div class="page">
+    <div class="section-title">Coverage Rules & Weights</div>
+    <div class="alert alert-info mb-4">${IC.inf}<div>Coverage units measure APP workload for <strong>cross-team</strong> coverage only. Each team's APP covers their own physicians by default (no load counted). Load tracking applies when APPs cover other teams' absent physicians.</div></div>
+    <div class="grid-2" style="gap:16px">
+      <div class="card" style="margin:0"><div class="card-hd">Coverage Weights</div><div class="card-body">
+        <div class="fg"><label class="flabel">MD out on PTO (units)</label><input class="finput" type="number" min="0" max="5" step="0.25" value="${f.mdPtoWeight}" oninput="A.sf('mdPtoWeight',parseFloat(this.value))"><div class="text-sm text-muted" style="margin-top:3px">Full in-basket — extended absence.</div></div>
+        <div class="fg"><label class="flabel">MD out — day off (units)</label><input class="finput" type="number" min="0" max="5" step="0.25" value="${f.mdOffWeight}" oninput="A.sf('mdOffWeight',parseFloat(this.value))"></div>
+        <div class="fg"><label class="flabel">APP covering in-office physician on same team (units)</label><input class="finput" type="number" min="0" max="5" step="0.25" value="${f.appAnyWeight}" oninput="A.sf('appAnyWeight',parseFloat(this.value))"></div>
+        <div class="fg"><label class="flabel">APP covering another absent APP (units)</label><input class="finput" type="number" min="0" max="5" step="0.25" value="${f.appCoverWeight}" oninput="A.sf('appCoverWeight',parseFloat(this.value))"></div>
+      </div></div>
+      <div class="card" style="margin:0"><div class="card-hd">APP Limits</div><div class="card-body">
+        <div class="fg"><label class="flabel">Daily APP limit (units)</label><input class="finput" type="number" min="0" max="20" step="0.5" value="${f.dailyAppLimit}" oninput="A.sf('dailyAppLimit',parseFloat(this.value))"><div class="text-sm text-muted" style="margin-top:3px">Max units before overloaded.</div></div>
+        <div class="fg"><label class="flabel">Weekly APP limit (units)</label><input class="finput" type="number" min="0" max="50" step="1" value="${f.weeklyAppLimit}" oninput="A.sf('weeklyAppLimit',parseFloat(this.value))"></div>
+      </div></div>
+      <div class="card" style="margin:0"><div class="card-hd">Algorithm</div><div class="card-body">
+        <div class="toggle-wrap" onclick="A.sf('autoAssign',!${f.autoAssign})">
+          <div class="toggle-track${f.autoAssign?' toggle-on':''}"></div><span style="font-size:13px">Auto-assign coverage</span>
+        </div>
+        <div class="text-sm text-muted mb-3">You can always override on the daily page.</div>
+        <div class="alert alert-info" style="font-size:11px">${IC.inf}<div><strong>Coverage Logic:</strong><br>1. Team APP covers own-team physicians: 0.5 units/IN physician, full weight/absent physician<br>2. If team APP is absent → IN physicians self-cover (PCP)<br>3. Float APP covers absent physicians on teams with no APP<br>4. Least-loaded cross-team APP covers remaining physician gaps<br>5. If all APPs exhausted → same-team IN physician covers (last resort, shown amber)<br>6. Absent APPs are covered by float then least-loaded APP at 0.25 units each<br>7. No coverage possible → Uncovered</div></div>
+      </div></div>
+      <div class="card" style="margin:0"><div class="card-hd">Practice</div><div class="card-body">
+        <div class="fg"><label class="flabel">Practice Name</label><input class="finput" value="${esc(f.practiceName)}" oninput="A.sf('practiceName',this.value)"></div>
+      </div></div>
+    </div>
+    <div class="flex-row" style="margin-top:16px">
+      <button class="btn btn-primary" ${dirty?'':'disabled'} onclick="A.saveSF()">${IC.ok} Save Settings</button>
+      <button class="btn btn-secondary" onclick="set({sf:null})">Discard</button>
+      <button class="btn btn-danger" style="margin-left:auto" onclick="A.reset()">Reset All Data</button>
+    </div>
+  </div>`;
+}
+
+function renderModal(){
+  if(!S.modal)return'';
+  const{type,data}=S.modal;
+  const mwrap=(title,body,ft)=>`<div class="modal-overlay" onclick="if(event.target===this)A.cm()">
+    <div class="modal-box">
+      <div class="modal-hd"><h3>${title}</h3><button class="btn btn-secondary btn-sm btn-icon" onclick="A.cm()">${IC.X}</button></div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-ft">${ft}</div>
+    </div>
+  </div>`;
+
+  if(type==='delP'){const p=S.providers.find(x=>x.id===data.id);return mwrap('Delete Provider',`<p>Delete <strong>${esc(p?.name)}</strong>? Cannot be undone.</p>`,`<button class="btn btn-secondary" onclick="A.cm()">Cancel</button><button class="btn btn-danger" onclick="A.delP('${data.id}')">Delete</button>`);}
+  if(type==='delT'){const t=S.teams.find(x=>x.id===data.id);return mwrap('Delete Team',`<p>Delete team <strong>${esc(t?.name)}</strong>?</p>`,`<button class="btn btn-secondary" onclick="A.cm()">Cancel</button><button class="btn btn-danger" onclick="A.delT('${data.id}')">Delete</button>`);}
+
+  if(type==='prov'){
+    const p=data.edit||{},ie=!!data.edit;
+    const tOpts=S.teams.map(t=>`<option value="${esc(t.id)}"${p.teamId===t.id?' selected':''}>${esc(t.name)}</option>`).join('');
+    const fOpt=`<option value="__float__"${p.isFloat?' selected':''}>Float (No team)</option>`;
+    return mwrap(ie?'Edit Provider':'Add Provider',`
+      ${data.err?`<div class="alert alert-danger mb-3">${IC.warn}${esc(data.err)}</div>`:''}
+      <div class="fg"><label class="flabel">Full Name</label><input id="pm-n" class="finput" value="${esc(p.name||'')}" placeholder="e.g. Jane Smith"></div>
+      <div class="fg"><label class="flabel">Short ID</label><input id="pm-i" class="finput" value="${esc(p.id||'')}" placeholder="e.g. jsmith"${ie?' disabled':''}><div class="text-sm text-muted" style="margin-top:3px">Lowercase, no spaces${ie?'. Cannot change after creation.':'.'}</div></div>
+      <div class="form-row">
+        <div class="fg"><label class="flabel">Role</label><select id="pm-r" class="finput"><option value="MD"${p.role==='MD'?' selected':''}>Physician (MD/DO)</option><option value="APP"${p.role==='APP'?' selected':''}>APP (PA/NP)</option></select></div>
+        <div class="fg"><label class="flabel">Team</label><select id="pm-t" class="finput">${tOpts}${fOpt}</select></div>
+      </div>`,
+      `<button class="btn btn-secondary" onclick="A.cm()">Cancel</button><button class="btn btn-primary" onclick="A.savP(${ie})">${ie?'Save Changes':'Add Provider'}</button>`);
+  }
+  if(type==='team'){
+    const t=data.edit||{},ie=!!data.edit;
+    const cc=data.color||t.color||COLORS[0];
+    const sw=COLORS.map(c=>`<div onclick="A.tc('${c}')" style="width:26px;height:26px;border-radius:5px;background:${c};cursor:pointer;border:${cc===c?'3px solid #1a2b3c':'3px solid transparent'};display:inline-block;margin:2px"></div>`).join('');
+    return mwrap(ie?'Edit Team':'Add Team',`
+      ${data.err?`<div class="alert alert-danger mb-3">${IC.warn}${esc(data.err)}</div>`:''}
+      <div class="fg"><label class="flabel">Team Name</label><input id="tm-n" class="finput" value="${esc(t.name||'')}" placeholder="e.g. North Campus"></div>
+      <div class="fg"><label class="flabel">Team ID</label><input id="tm-i" class="finput" value="${esc(t.id||'')}" placeholder="e.g. north-campus"${ie?' disabled':''}></div>
+      <div class="fg"><label class="flabel">Color</label><div style="margin-top:5px">${sw}</div></div>`,
+      `<button class="btn btn-secondary" onclick="A.cm()">Cancel</button><button class="btn btn-primary" onclick="A.savT(${ie})">${ie?'Save Changes':'Add Team'}</button>`);
+  }
+  return'';
+}
+
+function render(){
+  const titles={daily:'Daily Coverage',week:'Weekly Overview',staff:'Staff & Teams',settings:'Settings'};
+  const abs=S.view==='daily'?Object.values(S.schedule[S.date]||{}).filter(v=>v==='OUT'||v==='OUT/PTO').length:0;
+  let pg='';
+  if(S.view==='daily')pg=renderDaily();
+  else if(S.view==='week')pg=renderWeek();
+  else if(S.view==='staff')pg=renderStaff();
+  else if(S.view==='settings')pg=renderSettings();
+  document.getElementById('app').innerHTML=`
+    ${renderSidebar()}
+    <main class="main">
+      <div class="topbar"><h2>${esc(titles[S.view])}</h2><div class="topbar-right">${S.view==='daily'?`<span style="margin-right:12px;color:var(--slate)">${abs} absent today</span>`:''}<button class="btn btn-secondary btn-sm" onclick="A.exportSnap()">📋 Export Week</button></div></div>
+      ${pg}
+    </main>
+    ${renderModal()}`;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+const A={
+  nav:v=>set({view:v,sf:null}),
+  shD:d=>{const dt=new Date(S.date+'T12:00:00');dt.setDate(dt.getDate()+d);const iso=dt.toISOString().split('T')[0];set({date:iso,weekAnchor:iso});},
+  shW:d=>{const dt=new Date(S.weekAnchor+'T12:00:00');dt.setDate(dt.getDate()+d);set({weekAnchor:dt.toISOString().split('T')[0]});},
+  setSt:(pid,val)=>{const sch={...S.schedule};sch[S.date]={...(sch[S.date]||{}),[pid]:val};set({schedule:sch});persist();},
+  setAsgn:(date,pid,val)=>{const sch={...S.schedule},k=date+'_asgn';if(val)sch[k]={...(sch[k]||{}),[pid]:val};else{const a={...(sch[k]||{})};delete a[pid];sch[k]=a;}set({schedule:sch});persist();},
+  cm:()=>set({modal:null}),
+  addP:()=>set({modal:{type:'prov',data:{}}}),
+  editP:id=>{const p=S.providers.find(x=>x.id===id);set({modal:{type:'prov',data:{edit:p}}});},
+  delPC:id=>set({modal:{type:'delP',data:{id}}}),
+  delP:id=>{set({providers:S.providers.filter(p=>p.id!==id),modal:null});persist();},
+  addT:()=>set({modal:{type:'team',data:{color:COLORS[0]}}}),
+  editT:id=>{const t=S.teams.find(x=>x.id===id);set({modal:{type:'team',data:{edit:t,color:t.color}}});},
+  delTC:id=>{if(S.providers.some(p=>p.teamId===id)){alert('Reassign all providers on this team first.');return;}set({modal:{type:'delT',data:{id}}});},
+  delT:id=>{set({teams:S.teams.filter(t=>t.id!==id),modal:null});persist();},
+  tc:c=>{const m={...S.modal,data:{...S.modal.data,color:c}};set({modal:m});},
+  savP:ie=>{
+    const n=document.getElementById('pm-n')?.value.trim();
+    const id=document.getElementById('pm-i')?.value.trim().toLowerCase().replace(/\s+/g,'_');
+    const role=document.getElementById('pm-r')?.value;
+    const tv=document.getElementById('pm-t')?.value;
+    const isFloat=tv==='__float__',teamId=isFloat?null:tv;
+    if(!n){set({modal:{...S.modal,data:{...S.modal.data,err:'Name is required.'}}});return;}
+    if(!ie&&!id){set({modal:{...S.modal,data:{...S.modal.data,err:'ID is required.'}}});return;}
+    if(!ie&&S.providers.find(p=>p.id===id)){set({modal:{...S.modal,data:{...S.modal.data,err:'ID already exists.'}}});return;}
+    let providers;
+    if(ie){const o=S.modal.data.edit;providers=S.providers.map(p=>p.id===o.id?{...p,name:n,role,teamId,isFloat}:p);}
+    else providers=[...S.providers,{id,name:n,role,teamId,isFloat}];
+    set({providers,modal:null});persist();
+  },
+  savT:ie=>{
+    const n=document.getElementById('tm-n')?.value.trim();
+    const id=document.getElementById('tm-i')?.value.trim().toLowerCase().replace(/\s+/g,'-');
+    const color=S.modal.data.color||COLORS[0];
+    if(!n){set({modal:{...S.modal,data:{...S.modal.data,err:'Name is required.'}}});return;}
+    if(!ie&&!id){set({modal:{...S.modal,data:{...S.modal.data,err:'ID is required.'}}});return;}
+    if(!ie&&S.teams.find(t=>t.id===id)){set({modal:{...S.modal,data:{...S.modal.data,err:'ID already exists.'}}});return;}
+    let teams;
+    if(ie){const o=S.modal.data.edit;teams=S.teams.map(t=>t.id===o.id?{...t,name:n,color}:t);}
+    else teams=[...S.teams,{id,name:n,color}];
+    set({teams,modal:null});persist();
+  },
+  sf:(k,v)=>{const f={...(S.sf||S.settings),[k]:v};set({sf:f});},
+  savSF:()=>{const f=S.sf||S.settings;set({settings:f,sf:null});persist();},
+  reset:()=>{if(!confirm('Reset ALL data? Cannot be undone.'))return;localStorage.clear();location.reload();},
+  exportSnap:()=>{
+    const wd=weekDts(S.weekAnchor||S.date);
+    const tmap={}; S.teams.forEach(t=>{tmap[t.id]=t;});
+    // Helper: get final assignment label for a provider on a day
+    function asgnLabel(p,d){
+      const dss=S.schedule[d]||{},st=dss[p.id]||'IN';
+      const ma=(S.schedule[d+'_asgn']||{})[p.id];
+      const{asgn}=compute(dss,S.providers,S.teams,S.settings);
+      const fa=ma||asgn[p.id];
+      let cov='';
+      if(fa==='PCP') cov='PCP';
+      else if(fa==='MD_ONLY') cov='MD Cover';
+      else if(fa==='UNCOVERED') cov='UNCOVERED';
+      else if(fa){const cp=S.providers.find(x=>x.id===fa);if(cp)cov=(cp.role==='MD'?'MD: ':'')+cp.name;}
+      return{st,cov};
+    }
+    // Build table rows
+    const statusColor={IN:'#2a7a4a',OUT:'#c74040','OUT/PTO':'#c74040',ADMIN:'#1e7e8c'};
+    const statusBg={IN:'#ebf7f0',OUT:'#fdf0f0','OUT/PTO':'#fdf0f0',ADMIN:'#e6f4f6'};
+    let tbody='';
+    // Team separator + providers
+    const allTeams=[...S.teams];
+    allTeams.forEach(team=>{
+      const tps=S.providers.filter(p=>!p.isFloat&&p.teamId===team.id);
+      if(!tps.length)return;
+      tbody+=`<tr><td colspan="${2+wd.length}" style="background:${team.color};color:#fff;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px">${team.name}</td></tr>`;
+      tps.forEach(p=>{
+        let row=`<td style="padding:6px 10px;font-weight:500;border-bottom:1px solid #e0e0e0;white-space:nowrap">${p.name}</td>`;
+        row+=`<td style="padding:6px 8px;text-align:center;color:#888;font-size:11px;border-bottom:1px solid #e0e0e0">${p.role}</td>`;
+        wd.forEach(d=>{
+          const{st,cov}=asgnLabel(p,d);
+          const isOut=st==='OUT'||st==='OUT/PTO';
+          const stStyle=`color:${statusColor[st]||'#333'};background:${statusBg[st]||'#fff'};`;
+          const covStyle=isOut&&cov==='UNCOVERED'?'color:#c74040;font-weight:700':isOut?'color:#1a2b3c;font-size:10px':'color:#5a6a7a;font-size:10px';
+          row+=`<td style="padding:5px 8px;border-bottom:1px solid #e0e0e0;border-left:1px solid #e8e8e8;min-width:90px">
+            <div style="${stStyle}font-weight:600;font-size:11px;border-radius:3px;display:inline-block;padding:1px 5px">${st}</div>
+            ${cov?`<div style="${covStyle};margin-top:2px">${cov}</div>`:''}
+          </td>`;
+        });
+        tbody+=`<tr>${row}</tr>`;
+      });
+    });
+    // Float APPs
+    const floats=S.providers.filter(p=>p.isFloat);
+    if(floats.length){
+      tbody+=`<tr><td colspan="${2+wd.length}" style="background:#4E5E6E;color:#fff;font-weight:700;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:6px 10px">Float</td></tr>`;
+      floats.forEach(p=>{
+        let row=`<td style="padding:6px 10px;font-weight:500;border-bottom:1px solid #e0e0e0">${p.name}</td>`;
+        row+=`<td style="padding:6px 8px;text-align:center;color:#888;font-size:11px;border-bottom:1px solid #e0e0e0">APP</td>`;
+        wd.forEach(d=>{
+          const{st,cov}=asgnLabel(p,d);
+          const stStyle=`color:${statusColor[st]||'#333'};background:${statusBg[st]||'#fff'};`;
+          const covStyle=cov==='UNCOVERED'?'color:#c74040;font-weight:700':'color:#5a6a7a;font-size:10px';
+          row+=`<td style="padding:5px 8px;border-bottom:1px solid #e0e0e0;border-left:1px solid #e8e8e8;min-width:90px">
+            <div style="${stStyle}font-weight:600;font-size:11px;border-radius:3px;display:inline-block;padding:1px 5px">${st}</div>
+            ${cov?`<div style="${covStyle};margin-top:2px">${cov}</div>`:''}
+          </td>`;
+        });
+        tbody+=`<tr>${row}</tr>`;
+      });
+    }
+    const dayHdrs=wd.map((d,i)=>`<th style="padding:8px 10px;background:#1a2b3c;color:#fff;font-size:12px;font-weight:600;border-left:1px solid #2a3b4c;min-width:90px">${DAYS[i]}<br><span style="font-weight:300;font-size:10px;opacity:.7">${isoDisp(d)}</span></th>`).join('');
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Coverage Snapshot — ${isoDisp(wd[0])} to ${isoDisp(wd[4])}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:#1a2b3c;background:#fff;padding:24px}
+  h1{font-size:18px;margin-bottom:4px}
+  .sub{font-size:12px;color:#666;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%;border:1px solid #ddd}
+  th,td{vertical-align:top}
+  @media print{
+    body{padding:8px}
+    .no-print{display:none}
+    table{page-break-inside:auto}
+    tr{page-break-inside:avoid}
+  }
+</style></head><body>
+<div class="no-print" style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+  <button onclick="window.print()" style="padding:8px 20px;background:#1a2b3c;color:#fff;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:600">Print / Save PDF</button>
+  <span style="color:#888;font-size:12px">Tip: In print dialog choose "Save as PDF" to export</span>
+</div>
+<h1>${S.settings.practiceName} — Coverage Snapshot</h1>
+<div class="sub">Week of ${isoDisp(wd[0])} – ${isoDisp(wd[4])}</div>
+<table>
+  <thead><tr>
+    <th style="padding:8px 10px;background:#1a2b3c;color:#fff;font-size:12px;text-align:left;min-width:130px">Provider</th>
+    <th style="padding:8px 10px;background:#1a2b3c;color:#fff;font-size:12px;text-align:center;width:50px">Role</th>
+    ${dayHdrs}
+  </tr></thead>
+  <tbody>${tbody}</tbody>
+</table>
+<div class="no-print" style="margin-top:12px;font-size:11px;color:#999">Generated ${new Date().toLocaleString()}</div>
+</body></html>`;
+    const w=window.open('','_blank');
+    if(w){w.document.write(html);w.document.close();}
+    else alert('Please allow pop-ups for this page to export the snapshot.');
+  },
+};
+
+// ── PASSWORD GATE ─────────────────────────────────────────────────────────────
+const GATE_KEY='pp_auth';
+const GATE_PW='placepark001';
+function gateSubmit(){
+  const val=document.getElementById('gate-pw').value;
+  const err=document.getElementById('gate-err');
+  if(val===GATE_PW){
+    sessionStorage.setItem(GATE_KEY,'1');
+    const g=document.getElementById('gate');
+    g.classList.add('hidden');
+    setTimeout(()=>g.style.display='none',420);
+  } else {
+    err.textContent='Incorrect password. Please try again.';
+    const inp=document.getElementById('gate-pw');
+    inp.value='';inp.focus();
+    setTimeout(()=>{err.textContent='';},3000);
+  }
+}
+
+// boot
+render();
+// Show gate or bypass if already authenticated this session
+if(sessionStorage.getItem(GATE_KEY)==='1'){
+  document.getElementById('gate').style.display='none';
+} else {
+  setTimeout(()=>document.getElementById('gate-pw').focus(),50);
+}
+</script>
+</body>
+</html>
